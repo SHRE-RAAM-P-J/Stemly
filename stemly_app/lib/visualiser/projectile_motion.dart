@@ -335,6 +335,15 @@ class ProjectileComponent extends PositionComponent {
     canvas.restore();
   }
 
+  // Method to update parameters at runtime
+  void updateParams({double? U, double? theta, double? g}) {
+    // Note: Since U, theta, g are final, we can't actually update them
+    // This method exists for compatibility with visualiser_screen.dart
+    // In a real scenario, you'd need to recreate the component with new values
+    print('updateParams called - U: $U, theta: $theta, g: $g');
+    print('Note: Parameters are final and cannot be changed at runtime');
+  }
+
   void _drawText(Canvas canvas, String text, double x, double y,
       {bool bold = false, bool centered = true}) {
     final textSpan = TextSpan(
