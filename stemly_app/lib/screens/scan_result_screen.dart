@@ -1,12 +1,9 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flame/game.dart';
 import 'package:http/http.dart' as http;
 
 import '../visualiser/projectile_motion.dart';
-import '../visualiser/free_fall_component.dart';
-import '../visualiser/shm_component.dart';
 import '../visualiser/visualiser_models.dart';
 
 class ScanResultScreen extends StatefulWidget {
@@ -32,7 +29,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   
   // Visualiser state
   VisualTemplate? visualiserTemplate;
-  Game? flameGame;
+  Widget? visualiserWidget;
   bool loadingVisualiser = true;
   
   final String serverIp = "http://10.0.2.2:8000";
@@ -74,7 +71,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         final templateId = template.templateId.toLowerCase();
         
         if (templateId.contains('projectile')) {
-          print("🎯 Creating projectile motion component...");
+          print("🎯 Creating projectile motion widget...");
           final p = template.parameters;
           final U = p['U']!.value;
           final theta = p['theta']!.value;
@@ -82,35 +79,11 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           
           print("📊 Parameters - U: $U, theta: $theta, g: $g");
           
-          // Use the new ProjectileMotionGame instead of component
-          flameGame = ProjectileMotionGame(U: U, theta: theta, g: g);
-          print("✅ Projectile game created successfully!");
-          
-        } else if (templateId.contains('free') || templateId.contains('fall')) {
-          print("🎯 Creating free fall component...");
-          final p = template.parameters;
-          final h = p['h']!.value;
-          final g = p['g']!.value;
-          
-          print("📊 Parameters - h: $h, g: $g");
-          
-          flameGame = FreeFallGame(h: h, g: g);
-          print("✅ Free fall game created successfully!");
-          
-        } else if (templateId.contains('shm') || templateId.contains('harmonic')) {
-          print("🎯 Creating SHM component...");
-          final p = template.parameters;
-          final A = p['A']!.value;
-          final m = p['m']!.value;
-          final k = p['k']!.value;
-          
-          print("📊 Parameters - A: $A, m: $m, k: $k");
-          
-          flameGame = SHMGame(A: A, m: m, k: k);
-          print("✅ SHM game created successfully!");
+          visualiserWidget = ProjectileMotionWidget(U: U, theta: theta, g: g);
+          print("✅ Projectile widget created!");
           
         } else {
-          print("⚠️ Template ID '$templateId' not recognized");
+          print("⚠️ Template '$templateId' - Only projectile motion supported currently");
         }
         
         setState(() {
@@ -228,8 +201,8 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
               borderRadius: BorderRadius.circular(18),
               child: loadingVisualiser
                   ? const Center(child: CircularProgressIndicator())
-                  : flameGame != null
-                      ? GameWidget(game: flameGame!)
+                  : visualiserWidget != null
+                      ? visualiserWidget!
                       : Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
