@@ -19,8 +19,7 @@ class VisualiserScreen extends StatefulWidget {
 class _VisualiserScreenState extends State<VisualiserScreen> {
   late VisualiserController controller;
   ProjectileComponent? projectile;
-  late GameWidget gameWidget;
-  late Game game;
+  Game? game;
 
   @override
   void initState() {

@@ -33,7 +33,7 @@ class FreeFallComponent extends PositionComponent {
     // Initialize paints
     ballPaint.color = const Color(0xFFE91E63);
     shadowPaint.color = Colors.black.withOpacity(0.3);
-    shadowPaint.mask Filter = const MaskFilter.blur(BlurStyle.normal, 4);
+    shadowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     
     rulerPaint.color = Colors.black87;
     rulerPaint.strokeWidth = 2;
