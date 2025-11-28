@@ -36,3 +36,5 @@ stemly_app/ios/Runner/GoogleService-Info.plist
 
 __pycache__/
 *.pyc
+backend/serviceAccountKey.json
+
