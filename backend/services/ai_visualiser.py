@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 from config import GEMINI_API_KEY
 
 class ParameterUpdate(BaseModel):
-    updated_parameters: Dict[str, Any] = Field(description="Dictionary of updated parameter values")
-    explanation: str = Field(description="Brief explanation of what was changed")
+    updated_parameters: Dict[str, Any] = Field(description="Dictionary of updated parameter values. Empty if no changes needed.")
+    ai_response: str = Field(description="Response to the user. If parameters changed, explain what happened. If the user asked a question, answer it.")
 
 async def adjust_parameters_with_ai(template_id: str, current_params: Dict[str, Any], user_prompt: str) -> Dict[str, Any]:
     """
@@ -18,11 +18,11 @@ async def adjust_parameters_with_ai(template_id: str, current_params: Dict[str, 
     try:
         if not GEMINI_API_KEY:
             print("⚠ GEMINI_API_KEY not set")
-            return {}
+            return {"updated_parameters": {}, "ai_response": "AI is not configured."}
 
         llm = ChatGoogleGenerativeAI(
             model="gemini-pro", 
-            temperature=0.0,
+            temperature=0.3, # Slight creativity for explanations
             google_api_key=GEMINI_API_KEY
         )
         
@@ -30,18 +30,24 @@ async def adjust_parameters_with_ai(template_id: str, current_params: Dict[str, 
         
         prompt = PromptTemplate(
             template="""
-            You are an AI physics assistant controlling a simulation.
+            You are an expert Physics Tutor and Simulation Controller.
             
             Current Simulation: {template_id}
             Current Parameters: {current_params}
             
             User Request: "{user_prompt}"
             
-            Your task is to update the parameters based on the user's request.
-            - Only change parameters that are relevant to the request.
-            - Keep other parameters as they are (or don't include them in the update).
-            - Ensure values are physically reasonable.
-            - If the user asks for something impossible or unrelated, return an empty dictionary for updated_parameters.
+            Your tasks:
+            1. Analyze the user's request.
+            2. If they ask to change the simulation (e.g., "make it faster", "set angle to 45"), determine the necessary parameter updates.
+               - Only change relevant parameters.
+               - Ensure values are physically reasonable.
+            3. If they ask a question (e.g., "why does it curve?", "what is velocity?"), answer it clearly and concisely.
+            4. If they do both, do both.
+            
+            Return a JSON with:
+            - "updated_parameters": A dictionary of changed parameters (or empty if none).
+            - "ai_response": A natural language response to the user.
             
             {format_instructions}
             """,
@@ -57,7 +63,10 @@ async def adjust_parameters_with_ai(template_id: str, current_params: Dict[str, 
             "user_prompt": user_prompt
         })
         
-        return result.updated_parameters
+        return {
+            "updated_parameters": result.updated_parameters,
+            "ai_response": result.ai_response
+        }
         
     except Exception as e:
         print(f"AI Parameter Adjustment Error: {e}")

@@ -62,39 +62,68 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       if (response.statusCode == 200) {
         print("✅ API RAW RESPONSE: ${response.body}");
         final data = jsonDecode(response.body);
-        print("✅ Decoded data: $data");
         final templateJson = data['template'] as Map<String, dynamic>;
-        print("✅ Template JSON: $templateJson");
         final template = VisualTemplate.fromJson(templateJson);
-        print("✅ Parsed template - animationType: ${template.animationType}, templateId: ${template.templateId}");
         
         // Create Widget based on template ID
         final templateId = template.templateId.toLowerCase();
+        Widget? newWidget;
+        
+        final p = template.parameters;
+        double getVal(String key) => p[key]?.value ?? 0.0;
         
         if (templateId.contains('projectile')) {
           print("🎯 Creating projectile motion widget...");
-          final p = template.parameters;
-          final U = p['U']!.value;
-          final theta = p['theta']!.value;
-          final g = p['g']!.value;
-          
-          print("📊 Parameters - U: $U, theta: $theta, g: $g");
-          
-          visualiserWidget = ProjectileMotionWidget(U: U, theta: theta, g: g);
-          print("✅ Projectile widget created!");
-          
+          newWidget = ProjectileMotionWidget(
+            U: getVal('U'),
+            theta: getVal('theta'),
+            g: getVal('g'),
+          );
         } else if (templateId.contains('free') || templateId.contains('fall')) {
           print("🎯 Creating free fall widget...");
-          visualiserTemplate = template;
-          loadingVisualiser = false;
-        });
+          newWidget = FreeFallWidget(
+            h: getVal('h'),
+            g: getVal('g'),
+          );
+        } else if (templateId.contains('shm') || templateId.contains('harmonic')) {
+          print("🎯 Creating SHM widget...");
+          newWidget = SHMWidget(
+            A: getVal('A'),
+            m: getVal('m'),
+            k: getVal('k'),
+          );
+        } else if (templateId.contains('kinematics') || templateId.contains('motion')) {
+          print("🎯 Creating Kinematics widget...");
+          newWidget = KinematicsWidget(
+            u: getVal('u'),
+            a: getVal('a'),
+            tMax: getVal('t_max'),
+          );
+        } else if (templateId.contains('optics') || templateId.contains('lens')) {
+          print("🎯 Creating Optics widget...");
+          newWidget = OpticsWidget(
+            f: getVal('f'),
+            u: getVal('u'),
+            h_o: getVal('h_o'),
+          );
+        } else {
+          print("⚠️ Template ID '$templateId' not recognized");
+        }
+        
+        if (mounted) {
+          setState(() {
+            visualiserTemplate = template;
+            visualiserWidget = newWidget;
+            loadingVisualiser = false;
+          });
+        }
       } else {
         print('Visualiser API error: ${response.statusCode} - ${response.body}');
-        setState(() => loadingVisualiser = false);
+        if (mounted) setState(() => loadingVisualiser = false);
       }
     } catch (e) {
       print('Error loading visualiser: $e');
-      setState(() => loadingVisualiser = false);
+      if (mounted) setState(() => loadingVisualiser = false);
     }
   }
 
@@ -175,6 +204,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   }
 
   Widget _visualiser(Color deepBlue) {
+    final theme = Theme.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -360,18 +390,22 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final updatedParams = data['parameters'] as Map<String, dynamic>;
-        final aiUpdates = data['ai_updates'] as Map<String, dynamic>;
+        final aiResponse = data['ai_response'] as String? ?? "Done.";
 
         // Update Template Parameters locally
         if (visualiserTemplate != null) {
           updatedParams.forEach((key, value) {
             if (visualiserTemplate!.parameters.containsKey(key)) {
-              // We need to update the VisualParameter object. 
-              // Since VisualParameter is immutable-ish, we might need a method or direct access if mutable.
-              // Let's assume we can update the value directly for now or recreate.
-              // Actually VisualParameter.value is final? Let's check model.
-              // If final, we need to rebuild the template.
-              // For simplicity, let's just update the widget which takes raw values.
+               // Create a new TemplateParameter with updated value
+               final oldParam = visualiserTemplate!.parameters[key]!;
+               visualiserTemplate!.parameters[key] = TemplateParameter(
+                 name: oldParam.name,
+                 value: (value is num) ? value.toDouble() : oldParam.value,
+                 min: oldParam.min,
+                 max: oldParam.max,
+                 unit: oldParam.unit,
+                 label: oldParam.label,
+               );
             }
           });
           
@@ -380,15 +414,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         }
 
         setState(() {
-          String reply = "Updated parameters.";
-          if (aiUpdates.isNotEmpty) {
-            final changes = aiUpdates.entries.map((e) => "${e.key} to ${e.value}").join(", ");
-            reply = "Updated $changes.";
-          } else {
-            reply = "I couldn't find any parameters to change.";
-          }
-          
-          _chatMessages.add({'role': 'ai', 'content': reply});
+          _chatMessages.add({'role': 'ai', 'content': aiResponse});
           _isSendingMessage = false;
         });
       } else {
@@ -452,9 +478,10 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         if (visualiserTemplate != null) {
            params.forEach((key, value) {
              if (visualiserTemplate!.parameters.containsKey(key)) {
-               // Create a new VisualParameter with updated value
+               // Create a new TemplateParameter with updated value
                final oldParam = visualiserTemplate!.parameters[key]!;
-               visualiserTemplate!.parameters[key] = VisualParameter(
+               visualiserTemplate!.parameters[key] = TemplateParameter(
+                 name: oldParam.name,
                  value: (value is num) ? value.toDouble() : oldParam.value,
                  min: oldParam.min,
                  max: oldParam.max,
