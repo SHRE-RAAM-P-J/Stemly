@@ -59,7 +59,60 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           'variables': widget.variables,
         }),
       );
-      
+      if (response.statusCode == 200) {
+        print("✅ API RAW RESPONSE: ${response.body}");
+        final data = jsonDecode(response.body);
+        print("✅ Decoded data: $data");
+        final templateJson = data['template'] as Map<String, dynamic>;
+        print("✅ Template JSON: $templateJson");
+        final template = VisualTemplate.fromJson(templateJson);
+        print("✅ Parsed template - animationType: ${template.animationType}, templateId: ${template.templateId}");
+        
+        // Create Widget based on template ID
+        final templateId = template.templateId.toLowerCase();
+        
+        if (templateId.contains('projectile')) {
+          print("🎯 Creating projectile motion widget...");
+          final p = template.parameters;
+          final U = p['U']!.value;
+          final theta = p['theta']!.value;
+          final g = p['g']!.value;
+          
+          print("📊 Parameters - U: $U, theta: $theta, g: $g");
+          
+          visualiserWidget = ProjectileMotionWidget(U: U, theta: theta, g: g);
+          print("✅ Projectile widget created!");
+          
+        } else if (templateId.contains('free') || templateId.contains('fall')) {
+          print("🎯 Creating free fall widget...");
+          final p = template.parameters;
+          final h = p['h']!.value;
+          final g = p['g']!.value;
+          
+          print("📊 Parameters - h: $h, g: $g");
+          
+          visualiserWidget = FreeFallWidget(h: h, g: g);
+          print("✅ Free fall widget created!");
+          
+        } else if (templateId.contains('shm') || templateId.contains('harmonic')) {
+          print("🎯 Creating SHM widget...");
+          final p = template.parameters;
+          final A = p['A']!.value;
+          final m = p['m']!.value;
+          final k = p['k']!.value;
+          
+          print("📊 Parameters - A: $A, m: $m, k: $k");
+          
+          visualiserWidget = SHMWidget(A: A, m: m, k: k);
+          print("✅ SHM widget created!");
+          
+        } else {
+          print("⚠️ Template ID '$templateId' not recognized");
+        }
+        
+        setState(() {
+          visualiserTemplate = template;
+          loadingVisualiser = false;
         });
       } else {
         print('Visualiser API error: ${response.statusCode} - ${response.body}');
