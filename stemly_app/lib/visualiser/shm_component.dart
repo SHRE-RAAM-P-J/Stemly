@@ -4,341 +4,264 @@ import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
-class SHMComponent extends PositionComponent {
-  final double A; // Amplitude (m)
-  final double m; // Mass (kg)
-  final double k; // Spring constant (N/m)
+class SHMGame extends FlameGame {
+  final double A;
+  final double m;
+  final double k;
+  
+  SHMGame({required this.A, required this.m, required this.k});
+  
+  @override
+  Color backgroundColor() => const Color(0xFFF5F5F5);
+  
+  @override
+  Future<void> onLoad() async {
+    await add(SHMVisualizer(A: A, m: m, k: k));
+  }
+}
 
+class SHMVisualizer extends Component with HasGameRef {
+  final double A;
+  final double m;
+  final double k;
+  
   double elapsedTime = 0.0;
-  late double omega; // Angular frequency
-  late double period; // Time period
-  
+  late double omega;
+  late double period;
   final List<Offset> graphPoints = [];
-  final int maxGraphPoints = 100;
   
-  final Paint springPaint = Paint();
-  final Paint massPaint = Paint();
-  final Paint graphPaint = Paint();
-  final Paint axisPaint = Paint();
-  final Paint equilibriumPaint = Paint();
-
-  SHMComponent({
-    required this.A,
-    required this.m,
-    required this.k,
-    required Vector2 position,
-  }) : super(position: position, size: Vector2(400, 400));
-
+  SHMVisualizer({required this.A, required this.m, required this.k});
+  
   @override
   Future<void> onLoad() async {
     omega = sqrt(k / m);
     period = 2 * pi / omega;
-    
-    springPaint.color = const Color(0xFF9C27B0);
-    springPaint.strokeWidth = 3;
-    springPaint.style = PaintingStyle.stroke;
-    
-    massPaint.color = const Color(0xFF2196F3);
-    
-    graphPaint.color = const Color(0xFFFF5722);
-    graphPaint.strokeWidth = 2;
-    graphPaint.style = PaintingStyle.stroke;
-    
-    axisPaint.color = Colors.black54;
-    axisPaint.strokeWidth = 1;
-    
-    equilibriumPaint.color = const Color(0xFF4CAF50);
-    equilibriumPaint.strokeWidth = 2;
-    equilibriumPaint.style = PaintingStyle.stroke;
-    
-    return super.onLoad();
   }
-
+  
   @override
   void update(double dt) {
     super.update(dt);
-    
     elapsedTime += dt;
     
-    // Add point to graph
-    if (graphPoints.length >= maxGraphPoints) {
-      graphPoints.removeAt(0);
-    }
-    graphPoints.add(Offset(elapsedTime, _calculatePosition(elapsedTime)));
-    
-    // Reset after 2 periods for smooth animation
-    if (elapsedTime > period * 4) {
+    if (elapsedTime > period * 3) {
       elapsedTime = 0;
       graphPoints.clear();
     }
+    
+    // Add graph point
+    if (graphPoints.isEmpty || elapsedTime - graphPoints.last.dx > 0.05) {
+      graphPoints.add(Offset(elapsedTime, _calculatePosition(elapsedTime)));
+    }
   }
-
+  
   double _calculatePosition(double t) {
     return A * cos(omega * t);
   }
-
+  
   double _calculateVelocity(double t) {
     return -A * omega * sin(omega * t);
   }
-
+  
   @override
   void render(Canvas canvas) {
-    super.render(canvas);
+    final size = gameRef.size;
     
-    // Background gradient
-    final bgGradient = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFF3E5F5), Color(0xFFFFFFFF)],
-      ).createShader(Rect.fromLTWH(0, 0, size.x, size.y));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), bgGradient);
+    // Split screen: left for spring, right for graph
+    final splitX = size.x * 0.5;
     
-    // Left side: Spring animation
+    // Draw spring system on left
     canvas.save();
-    canvas.translate(120, size.y / 2);
-    _drawSpringSystem(canvas);
+    _drawSpringSystem(canvas, Vector2(splitX / 2, size.y / 2));
     canvas.restore();
     
-    // Right side: Position-time graph
+    // Draw graph on right
     canvas.save();
-    canvas.translate(size.x / 2 + 20, size.y / 2);
-    _drawGraph(canvas);
+    canvas.translate(splitX, 0);
+    _drawGraph(canvas, Vector2(size.x - splitX, size.y));
     canvas.restore();
     
-    // Draw labels
-    _drawLabels(canvas);
+    // Draw info panel
+    _drawInfoPanel(canvas);
   }
-
-  void _drawSpringSystem(Canvas canvas) {
+  
+  void _drawSpringSystem(Canvas canvas, Vector2 center) {
     final currentPos = _calculatePosition(elapsedTime);
     final currentVel = _calculateVelocity(elapsedTime);
-    final pixelsPerMeter = 60.0;
-    final yOffset = currentPos * pixelsPerMeter;
+    final scale = 60.0;
     
     // Draw ceiling
-    final ceilingPaint = Paint()
-      ..color = Colors.grey.shade400
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(Rect.fromLTWH(-60, -150, 120, 10), ceilingPaint);
+    final ceilingY = center.y - 180;
+    canvas.drawRect(
+      Rect.fromLTWH(center.x - 60, ceilingY - 10, 120, 10),
+      Paint()..color = Colors.grey.shade400,
+    );
     
     // Ceiling pattern
     for (double x = -60; x < 60; x += 10) {
       canvas.drawLine(
-        Offset(x, -150),
-        Offset(x + 5, -140),
+        Offset(center.x + x, ceilingY),
+        Offset(center.x + x + 5, ceilingY - 10),
         Paint()..color = Colors.grey.shade600..strokeWidth = 2,
       );
     }
     
     // Draw equilibrium line
     canvas.drawLine(
-      const Offset(-50, 0),
-      const Offset(50, 0),
-      equilibriumPaint..style = PaintingStyle.stroke,
+      Offset(center.x - 70, center.y),
+      Offset(center.x + 70, center.y),
+      Paint()..color = const Color(0xFF4CAF50)..strokeWidth = 2..style = PaintingStyle.stroke,
     );
     
-    canvas.save();
-    canvas.scale(1, -1);
-    _drawText(canvas, 'Equilibrium', -45, 8, fontSize: 9, color: const Color(0xFF4CAF50));
-    canvas.restore();
+    _drawText(canvas, 'Equilibrium', center.x - 35, center.y + 5, size: 10, color: const Color(0xFF4CAF50));
+    
+    // Draw amplitude markers
+    canvas.drawLine(
+      Offset(center.x - 70, center.y + A * scale),
+      Offset(center.x + 70, center.y + A * scale),
+      Paint()..color = const Color(0xFFFF9800).withOpacity(0.6)..strokeWidth = 1.5,
+    );
+    canvas.drawLine(
+      Offset(center.x - 70, center.y - A * scale),
+      Offset(center.x + 70, center.y - A * scale),
+      Paint()..color = const Color(0xFFFF9800).withOpacity(0.6)..strokeWidth = 1.5,
+    );
+    
+    _drawText(canvas, '+A', center.x + 75, center.y - A * scale - 5, size: 10, color: const Color(0xFFFF9800));
+    _drawText(canvas, '-A', center.x + 75, center.y + A * scale - 5, size: 10, color: const Color(0xFFFF9800));
     
     // Draw spring
-    _drawSpring(canvas, -140, yOffset, 20);
+    final massY = center.y + currentPos * scale;
+    _drawSpring(canvas, center.x, ceilingY, massY - 20, 20);
     
     // Draw mass
-    final massWidth = 40.0;
-    final massHeight = 30.0;
-    final massY = yOffset - massHeight / 2;
+    final massWidth = 50.0;
+    final massHeight = 40.0;
     
-    // Mass shadow
-    canvas.drawRect(
-      Rect.fromCenter(center: Offset(3, massY + 3), width: massWidth, height: massHeight),
-      Paint()..color = Colors.black.withOpacity(0.2),
-    );
-    
-    // Mass body with gradient
-    final massGradient = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          const Color(0xFF64B5F6),
-          const Color(0xFF2196F3),
-        ],
-      ).createShader(Rect.fromCenter(center: Offset(0, massY), width: massWidth, height: massHeight));
-    
+    // Shadow
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(0, massY), width: massWidth, height: massHeight),
+        Rect.fromCenter(center: Offset(center.x + 3, massY + 3), width: massWidth, height: massHeight),
         const Radius.circular(4),
       ),
-      massGradient,
+      Paint()..color = Colors.black.withOpacity(0.3),
+    );
+    
+    // Mass gradient
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(center.x, massY), width: massWidth, height: massHeight),
+        const Radius.circular(4),
+      ),
+      Paint()..shader = const LinearGradient(
+        colors: [Color(0xFF64B5F6), Color(0xFF2196F3)],
+      ).createShader(Rect.fromCenter(center: Offset(center.x, massY), width: massWidth, height: massHeight)),
     );
     
     // Mass border
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(0, massY), width: massWidth, height: massHeight),
+        Rect.fromCenter(center: Offset(center.x, massY), width: massWidth, height: massHeight),
         const Radius.circular(4),
       ),
-      Paint()
-        ..color = Colors.black26
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
+      Paint()..color = Colors.black26..style = PaintingStyle.stroke..strokeWidth = 2,
     );
     
-    // Mass label
-    canvas.save();
-    canvas.scale(1, -1);
-    _drawText(canvas, 'm', -5, -massY - 3, color: Colors.white, bold: true);
-    canvas.restore();
+    _drawText(canvas, 'm', center.x - 6, massY - 6, color: Colors.white, bold: true);
     
-    // Draw velocity arrow if moving
+    // Velocity arrow
     if (currentVel.abs() > 0.1) {
-      _drawVelocityArrow(canvas, Offset(0, massY), currentVel);
+      _drawVelocityArrow(canvas, center.x + 40, massY, currentVel * 3);
     }
-    
-    // Draw amplitude markers
-    _drawAmplitudeMarkers(canvas, pixelsPerMeter);
   }
-
-  void _drawSpring(Canvas canvas, double startY, double endY, double width) {
-    final springLength = (endY - startY).abs();
-    final  coils = 12;
-    final coilHeight = springLength / coils;
+  
+  void _drawSpring(Canvas canvas, double x, double startY, double endY, double width) {
+    final coils = 10;
+    final coilHeight = (endY - startY) / coils;
     
     final path = Path();
-    path.moveTo(0, startY);
+    path.moveTo(x, startY);
     
     for (int i = 0; i < coils; i++) {
       final y = startY + i * coilHeight;
-      path.lineTo(i % 2 == 0 ? width / 2 : -width / 2, y + coilHeight / 2);
-      path.lineTo(0, y + coilHeight);
+      path.lineTo(i % 2 == 0 ? x + width / 2 : x - width / 2, y + coilHeight / 2);
+      path.lineTo(x, y + coilHeight);
     }
     
-    canvas.drawPath(path, springPaint);
-  }
-
-  void _drawAmplitudeMarkers(Canvas canvas, double pixelsPerMeter) {
-    final markerPaint = Paint()
-      ..color = const Color(0xFFFF9800).withOpacity(0.6)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    
-    // Positive amplitude
-    canvas.drawLine(
-      Offset(-55, A * pixelsPerMeter),
-      Offset(55, A * pixelsPerMeter),
-      markerPaint,
+    canvas.drawPath(
+      path,
+      Paint()..color = const Color(0xFF9C27B0)..strokeWidth = 3..style = PaintingStyle.stroke,
     );
-    
-    // Negative amplitude
-    canvas.drawLine(
-      Offset(-55, -A * pixelsPerMeter),
-      Offset(55, -A * pixelsPerMeter),
-      markerPaint,
-    );
-    
-    // Labels
-    canvas.save();
-    canvas.scale(1, -1);
-    _drawText(canvas, '+A', 58, -A * pixelsPerMeter - 5, fontSize: 10, color: const Color(0xFFFF9800));
-    _drawText(canvas, '-A', 58, A * pixelsPerMeter - 5, fontSize: 10, color: const Color(0xFFFF9800));
-    canvas.restore();
   }
-
-  void _drawVelocityArrow(Canvas canvas, Offset position, double velocity) {
-    final arrowLength = min(velocity.abs() * 5, 40.0);
+  
+  void _drawVelocityArrow(Canvas canvas, double x, double y, double velocity) {
+    final length = min(velocity.abs() * 5, 50.0);
     final direction = velocity > 0 ? 1.0 : -1.0;
     
-    final arrowPaint = Paint()
-      ..color = const Color(0xFF00BCD4)
-      ..strokeWidth = 2;
-    
-    final startY = position.dy;
-    final endY = startY + arrowLength * direction;
-    
-    // Arrow shaft
+    // Arrow line
     canvas.drawLine(
-      Offset(position.dx + 30, startY),
-      Offset(position.dx + 30, endY),
-      arrowPaint,
+      Offset(x, y),
+      Offset(x, y + length * direction),
+      Paint()..color = const Color(0xFF00BCD4)..strokeWidth = 2,
     );
     
     // Arrow head
     final arrowHead = Path()
-      ..moveTo(position.dx + 30, endY)
-      ..lineTo(position.dx + 25, endY - 5 * direction)
-      ..lineTo(position.dx + 35, endY - 5 * direction)
+      ..moveTo(x, y + length * direction)
+      ..lineTo(x - 5, y + (length - 8) * direction)
+      ..lineTo(x + 5, y + (length - 8) * direction)
       ..close();
     
-    canvas.drawPath(
-      arrowHead,
-      Paint()..color = const Color(0xFF00BCD4)..style = PaintingStyle.fill,
-    );
+    canvas.drawPath(arrowHead, Paint()..color = const Color(0xFF00BCD4));
     
-    // Label
-    canvas.save();
-    canvas.scale(1, -1);
-    _drawText(
-      canvas,
-      'v',
-      position.dx + 40,
-      -(startY + endY) / 2 - 5,
-      fontSize: 10,
-      color: const Color(0xFF00BCD4),
-      bold: true,
-    );
-    canvas.restore();
+    _drawText(canvas, 'v', x + 10, y + length * direction / 2 - 5, 
+        size: 11, color: const Color(0xFF00BCD4), bold: true);
   }
-
-  void _drawGraph(Canvas canvas) {
-    final graphWidth = 140.0;
-    final graphHeight = 100.0;
+  
+  void _drawGraph(Canvas canvas, Vector2 size) {
+    final graphWidth = size.x - 40;
+    final graphHeight = size.y * 0.4;
+    final centerX = size.x / 2;
+    final centerY = size.y / 2;
     
-    // Graph background
+    // Background
     canvas.drawRect(
-      Rect.fromCenter(center: Offset.zero, width: graphWidth, height: graphHeight),
-      Paint()..color = Colors.white.withOpacity(0.8),
+      Rect.fromCenter(center: Offset(centerX, centerY), width: graphWidth, height: graphHeight),
+      Paint()..color = Colors.white.withOpacity(0.9),
     );
     
-    // Graph border
+    // Border
     canvas.drawRect(
-      Rect.fromCenter(center: Offset.zero, width: graphWidth, height: graphHeight),
-      Paint()
-        ..color = Colors.black26
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
+      Rect.fromCenter(center: Offset(centerX, centerY), width: graphWidth, height: graphHeight),
+      Paint()..color = Colors.black26..style = PaintingStyle.stroke..strokeWidth = 2,
     );
     
     // Title
-    canvas.save();
-    canvas.scale(1, -1);
-    _drawText(canvas, 'Position vs Time', -60, graphHeight / 2 + 15, fontSize: 10, bold: true);
-    canvas.restore();
+    _drawText(canvas, 'Position vs Time', centerX - 60, centerY - graphHeight / 2 - 25, 
+        size: 14, bold: true, color: const Color(0xFF1976D2));
     
     // Axes
     canvas.drawLine(
-      Offset(-graphWidth / 2, 0),
-      Offset(graphWidth / 2, 0),
-      axisPaint,
+      Offset(20, centerY),
+      Offset(size.x - 20, centerY),
+      Paint()..color = Colors.black54..strokeWidth = 1,
     );
     
     canvas.drawLine(
-      Offset(-graphWidth / 2, -graphHeight / 2),
-      Offset(-graphWidth / 2, graphHeight / 2),
-      axisPaint,
+      Offset(20, centerY - graphHeight / 2),
+      Offset(20, centerY + graphHeight / 2),
+      Paint()..color = Colors.black54..strokeWidth = 1,
     );
     
     // Plot graph
     if (graphPoints.length > 1) {
       final path = Path();
-      final pixelsPerSecond = graphWidth / (period * 2);
-      final pixelsPerMeter = 30.0;
+      final timeScale = graphWidth / (period * 2);
+      final posScale = (graphHeight / 2) / A * 0.8;
       
       for (int i = 0; i < graphPoints.length; i++) {
         final point = graphPoints[i];
-        final x = -graphWidth / 2 + (point.dx % (period * 2)) * pixelsPerSecond;
-        final y = point.dy * pixelsPerMeter;
+        final x = 20 + (point.dx % (period * 2)) * timeScale;
+        final y = centerY - point.dy * posScale;
         
         if (i == 0) {
           path.moveTo(x, y);
@@ -347,70 +270,54 @@ class SHMComponent extends PositionComponent {
         }
       }
       
-      canvas.drawPath(path, graphPaint);
+      canvas.drawPath(
+        path,
+        Paint()..color = const Color(0xFFFF5722)..strokeWidth = 2..style = PaintingStyle.stroke,
+      );
       
-      // Current position marker
+      // Current point marker
       if (graphPoints.isNotEmpty) {
-        final lastPoint = graphPoints.last;
-        final x = -graphWidth / 2 + (lastPoint.dx % (period * 2)) * pixelsPerSecond;
-        final y = lastPoint.dy * pixelsPerMeter;
+        final last = graphPoints.last;
+        final x = 20 + (last.dx % (period * 2)) * timeScale;
+        final y = centerY - last.dy * posScale;
         
-        canvas.drawCircle(
-          Offset(x, y),
-          4,
-          Paint()..color = const Color(0xFFFF5722)..style = PaintingStyle.fill,
-        );
+        canvas.drawCircle(Offset(x, y), 5, Paint()..color = const Color(0xFFFF5722));
       }
     }
   }
-
-  void _drawLabels(Canvas canvas) {
-    // Parameters box
-    final paramsBg = Paint()
-      ..color = Colors.white.withOpacity(0.9);
-    
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(10, 10, 150, 110),
-        const Radius.circular(8),
-      ),
-      paramsBg,
+  
+  void _drawInfoPanel(Canvas canvas) {
+    final panelRect = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(10, 10, 180, 140),
+      const Radius.circular(12),
     );
     
+    canvas.drawRRect(panelRect, Paint()..color = Colors.white.withOpacity(0.95));
     canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(10, 10, 150, 110),
-        const Radius.circular(8),
-      ),
-      Paint()
-        ..color = Colors.black12
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
+      panelRect,
+      Paint()..color = Colors.black26..style = PaintingStyle.stroke..strokeWidth = 2,
     );
     
-    // Text
-    _drawText(canvas, 'Simple Harmonic', 20, 25, bold: true);
-    _drawText(canvas, 'Motion', 20, 40, bold: true);
-    _drawText(canvas, 'A = ${A.toStringAsFixed(2)} m', 20, 60);
-    _drawText(canvas, 'm = ${m.toStringAsFixed(1)} kg', 20, 75);
-    _drawText(canvas, 'k = ${k.toStringAsFixed(1)} N/m', 20, 90);
-    _drawText(canvas, 'T = ${period.toStringAsFixed(2)} s', 20, 105, color: const Color(0xFF9C27B0));
+    _drawText(canvas, 'Simple Harmonic', 20, 30, size: 15, bold: true, color: const Color(0xFF1976D2));
+    _drawText(canvas, 'Motion', 20, 48, size: 15, bold: true, color: const Color(0xFF1976D2));
+    _drawText(canvas, 'Amplitude: ${A.toStringAsFixed(2)} m', 20, 72, size: 13);
+    _drawText(canvas, 'Mass: ${m.toStringAsFixed(1)} kg', 20, 90, size: 13);
+    _drawText(canvas, 'Spring k: ${k.toStringAsFixed(1)} N/m', 20, 108, size: 13);
+    _drawText(canvas, 'Period: ${period.toStringAsFixed(2)} s', 20, 126, size: 13, 
+        color: const Color(0xFF9C27B0), bold: true);
   }
-
+  
   void _drawText(Canvas canvas, String text, double x, double y,
-      {bool bold = false, double fontSize = 12, Color color = Colors.black87}) {
-    final textSpan = TextSpan(
-      text: text,
-      style: TextStyle(
-        color: color,
-        fontSize: fontSize,
-        fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-        fontFamily: 'monospace',
-      ),
-    );
-    
+      {double size = 12, bool bold = false, Color color = Colors.black87}) {
     final textPainter = TextPainter(
-      text: textSpan,
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: size,
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
       textDirection: TextDirection.ltr,
     );
     

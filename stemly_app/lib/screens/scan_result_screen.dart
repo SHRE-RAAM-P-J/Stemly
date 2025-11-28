@@ -33,7 +33,6 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   // Visualiser state
   VisualTemplate? visualiserTemplate;
   Game? flameGame;
-  ProjectileComponent? projectileComponent;
   bool loadingVisualiser = true;
   
   final String serverIp = "http://10.0.2.2:8000";
@@ -95,13 +94,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           
           print("📊 Parameters - h: $h, g: $g");
           
-          final comp = FreeFallComponent(
-            h: h,
-            g: g,
-            position: Vector2.zero(),
-          );
-          
-          flameGame = _VisualiserGame(comp);
+          flameGame = FreeFallGame(h: h, g: g);
           print("✅ Free fall game created successfully!");
           
         } else if (templateId.contains('shm') || templateId.contains('harmonic')) {
@@ -113,14 +106,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           
           print("📊 Parameters - A: $A, m: $m, k: $k");
           
-          final comp = SHMComponent(
-            A: A,
-            m: m,
-            k: k,
-            position: Vector2.zero(),
-          );
-          
-          flameGame = _VisualiserGame(comp);
+          flameGame = SHMGame(A: A, m: m, k: k);
           print("✅ SHM game created successfully!");
           
         } else {
