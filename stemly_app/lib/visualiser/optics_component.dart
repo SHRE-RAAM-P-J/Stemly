@@ -209,4 +209,8 @@ class OpticsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(OpticsPainter oldDelegate) => true;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b70c4da2b56ffc3b9c2e103b011b7d89902c8f3b

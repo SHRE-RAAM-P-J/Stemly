@@ -1,0 +1,29 @@
+{
+    "template_id": "optics_lens",
+    "title": "Convex Lens Optics",
+    "animation_type": "optics",
+    "description": "Image formation by a convex lens: 1/f = 1/v - 1/u",
+    "parameters": {
+        "f": {
+            "value": 10,
+            "min": 5,
+            "max": 50,
+            "unit": "cm",
+            "label": "Focal Length (f)"
+        },
+        "u": {
+            "value": 20,
+            "min": 10,
+            "max": 100,
+            "unit": "cm",
+            "label": "Object Distance (u)"
+        },
+        "h_o": {
+            "value": 5,
+            "min": 1,
+            "max": 20,
+            "unit": "cm",
+            "label": "Object Height"
+        }
+    }
+}
