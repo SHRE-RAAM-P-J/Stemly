@@ -33,3 +33,6 @@ stemly_app/macos/Pods/
 stemly_app/android/.gradle/
 stemly_app/android/app/google-services.json
 stemly_app/ios/Runner/GoogleService-Info.plist
+
+__pycache__/
+*.pyc
