@@ -58,9 +58,9 @@ async def update_visualiser(req: VisualiserUpdateRequest):
                 req.parameters,
                 req.user_prompt
             )
-        except (ImportError, NotImplementedError, AttributeError):
-            # AI updates not implemented yet - skip gracefully
-            print("⚠ AI visualiser not implemented, skipping parameter updates")
+            print(f"🤖 AI Updates: {updated}")
+        except Exception as e:
+            print(f"⚠ AI Update Error: {e}")
             updated = {}
 
     merged = dict(req.parameters)

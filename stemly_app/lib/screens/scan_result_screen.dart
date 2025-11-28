@@ -228,9 +228,244 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
           _title("Variables", deepBlue),
           _value(widget.variables.join(", "), deepBlue),
+          
+          const SizedBox(height: 30),
+          _title("Chat with AI", deepBlue),
+          const SizedBox(height: 10),
+          _buildChatInterface(deepBlue, theme.cardColor),
         ],
       ),
     );
+  }
+
+  // Chat State
+  final TextEditingController _chatController = TextEditingController();
+  final List<Map<String, String>> _chatMessages = [];
+  bool _isSendingMessage = false;
+
+  Widget _buildChatInterface(Color deepBlue, Color cardColor) {
+    return Container(
+      height: 300,
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Messages List
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _chatMessages.length,
+              itemBuilder: (context, index) {
+                final msg = _chatMessages[index];
+                final isUser = msg['role'] == 'user';
+                return Align(
+                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isUser ? deepBlue : deepBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16).copyWith(
+                        bottomRight: isUser ? Radius.zero : null,
+                        bottomLeft: isUser ? null : Radius.zero,
+                      ),
+                    ),
+                    child: Text(
+                      msg['content']!,
+                      style: TextStyle(
+                        color: isUser ? Colors.white : Colors.black87,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          // Input Area
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
+              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _chatController,
+                    decoration: InputDecoration(
+                      hintText: "Change parameters (e.g., 'set velocity to 20')...",
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                    ),
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
+                ),
+                IconButton(
+                  icon: _isSendingMessage 
+                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: deepBlue))
+                    : Icon(Icons.send_rounded, color: deepBlue),
+                  onPressed: _isSendingMessage ? null : _sendMessage,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _chatController.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      _chatMessages.add({'role': 'user', 'content': text});
+      _isSendingMessage = true;
+      _chatController.clear();
+    });
+
+    try {
+      // Prepare current parameters
+      final currentParams = <String, dynamic>{};
+      if (visualiserTemplate != null) {
+        visualiserTemplate!.parameters.forEach((key, val) {
+          currentParams[key] = val.value;
+        });
+      }
+
+      final url = Uri.parse('$serverIp/visualiser/update');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'template_id': visualiserTemplate?.templateId ?? '',
+          'parameters': currentParams,
+          'user_prompt': text,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final updatedParams = data['parameters'] as Map<String, dynamic>;
+        final aiUpdates = data['ai_updates'] as Map<String, dynamic>;
+
+        // Update Template Parameters locally
+        if (visualiserTemplate != null) {
+          updatedParams.forEach((key, value) {
+            if (visualiserTemplate!.parameters.containsKey(key)) {
+              // We need to update the VisualParameter object. 
+              // Since VisualParameter is immutable-ish, we might need a method or direct access if mutable.
+              // Let's assume we can update the value directly for now or recreate.
+              // Actually VisualParameter.value is final? Let's check model.
+              // If final, we need to rebuild the template.
+              // For simplicity, let's just update the widget which takes raw values.
+            }
+          });
+          
+          // Re-create widget with new values
+          _updateVisualiserWidget(visualiserTemplate!.templateId, updatedParams);
+        }
+
+        setState(() {
+          String reply = "Updated parameters.";
+          if (aiUpdates.isNotEmpty) {
+            final changes = aiUpdates.entries.map((e) => "${e.key} to ${e.value}").join(", ");
+            reply = "Updated $changes.";
+          } else {
+            reply = "I couldn't find any parameters to change.";
+          }
+          
+          _chatMessages.add({'role': 'ai', 'content': reply});
+          _isSendingMessage = false;
+        });
+      } else {
+        setState(() {
+          _chatMessages.add({'role': 'ai', 'content': "Error updating parameters."});
+          _isSendingMessage = false;
+        });
+      }
+    } catch (e) {
+      print("Chat Error: $e");
+      setState(() {
+        _chatMessages.add({'role': 'ai', 'content': "Failed to connect."});
+        _isSendingMessage = false;
+      });
+    }
+  }
+
+  void _updateVisualiserWidget(String templateId, Map<String, dynamic> params) {
+    // Helper to extract value safely
+    double getVal(String key) => (params[key] is num) ? (params[key] as num).toDouble() : 0.0;
+
+    Widget? newWidget;
+    final tid = templateId.toLowerCase();
+
+    if (tid.contains('projectile')) {
+      newWidget = ProjectileMotionWidget(
+        U: getVal('U'),
+        theta: getVal('theta'),
+        g: getVal('g'),
+      );
+    } else if (tid.contains('free') || tid.contains('fall')) {
+      newWidget = FreeFallWidget(
+        h: getVal('h'),
+        g: getVal('g'),
+      );
+    } else if (tid.contains('shm') || tid.contains('harmonic')) {
+      newWidget = SHMWidget(
+        A: getVal('A'),
+        m: getVal('m'),
+        k: getVal('k'),
+      );
+    } else if (tid.contains('kinematics')) {
+      newWidget = KinematicsWidget(
+        u: getVal('u'),
+        a: getVal('a'),
+        tMax: getVal('t_max'),
+      );
+    } else if (tid.contains('optics')) {
+      newWidget = OpticsWidget(
+        f: getVal('f'),
+        u: getVal('u'),
+        h_o: getVal('h_o'),
+      );
+    }
+
+    if (newWidget != null) {
+      setState(() {
+        visualiserWidget = newWidget;
+        
+        // Update the template object's internal values so future chats know current state
+        if (visualiserTemplate != null) {
+           params.forEach((key, value) {
+             if (visualiserTemplate!.parameters.containsKey(key)) {
+               // Create a new VisualParameter with updated value
+               final oldParam = visualiserTemplate!.parameters[key]!;
+               visualiserTemplate!.parameters[key] = VisualParameter(
+                 value: (value is num) ? value.toDouble() : oldParam.value,
+                 min: oldParam.min,
+                 max: oldParam.max,
+                 unit: oldParam.unit,
+                 label: oldParam.label,
+               );
+             }
+           });
+        }
+      });
+    }
   }
 
   Widget _notes(Color cardColor, Color deepBlue) {
