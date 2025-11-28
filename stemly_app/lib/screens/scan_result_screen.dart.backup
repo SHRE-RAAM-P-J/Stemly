@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 import 'package:http/http.dart' as http;
@@ -88,7 +89,6 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           loadingVisualiser = false;
         });
       } else {
-        print('Visualiser API error: ${response.statusCode} - ${response.body}');
         setState(() => loadingVisualiser = false);
       }
     } catch (e) {
@@ -102,6 +102,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
+    // Dynamic theme values
     final deepBlue = cs.primary;
     final primaryColor = cs.primaryContainer;
     final cardColor = theme.cardColor;
@@ -112,6 +113,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       child: Scaffold(
         backgroundColor: background,
 
+        // ---------------- APP BAR ----------------
         appBar: AppBar(
           backgroundColor: primaryColor,
           elevation: 0,
@@ -161,22 +163,6 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
               ),
             ),
           ),
-        ),
-
-        body: TabBarView(
-          children: [
-            _visualiser(deepBlue),
-            _notes(cardColor, deepBlue),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _visualiser(Color deepBlue) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // FLAME ANIMATION CARD
@@ -232,6 +218,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     );
   }
 
+  // ---------------- NOTES TAB ----------------
   Widget _notes(Color cardColor, Color deepBlue) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -257,6 +244,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     );
   }
 
+  // ---------------- EXPANDABLE CARD ----------------
   Widget _expandableCard({
     required String title,
     required bool expanded,
@@ -285,7 +273,8 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
             borderRadius: BorderRadius.circular(18),
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -324,6 +313,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     );
   }
 
+  // ---------------- CONTENT BUILDER ----------------
   Widget _buildContent(dynamic value, Color deepBlue) {
     if (value is String) {
       return Text(
@@ -363,6 +353,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     return const Text("Unsupported format");
   }
 
+  // ---------------- TITLE / VALUE ----------------
   Widget _title(String text, Color deepBlue) {
     return Text(
       text,
@@ -381,23 +372,11 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     );
   }
 
+  // ---------------- FORMAT CLEAN KEY ----------------
   String _formatKey(String raw) {
     return raw
         .replaceAll("_", " ")
         .trim()
         .replaceFirst(raw[0], raw[0].toUpperCase());
-  }
-}
-
-// Custom FlameGame class for the scan result visualiser
-class _VisualiserGame extends FlameGame {
-  final ProjectileComponent projectile;
-  
-  _VisualiserGame(this.projectile);
-  
-  @override
-  Future<void> onLoad() async {
-    await add(projectile);
-    return super.onLoad();
   }
 }
