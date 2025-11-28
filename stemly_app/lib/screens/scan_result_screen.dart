@@ -85,32 +85,6 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           
         } else if (templateId.contains('free') || templateId.contains('fall')) {
           print("🎯 Creating free fall widget...");
-          final p = template.parameters;
-          final h = p['h']!.value;
-          final g = p['g']!.value;
-          
-          print("📊 Parameters - h: $h, g: $g");
-          
-          visualiserWidget = FreeFallWidget(h: h, g: g);
-          print("✅ Free fall widget created!");
-          
-        } else if (templateId.contains('shm') || templateId.contains('harmonic')) {
-          print("🎯 Creating SHM widget...");
-          final p = template.parameters;
-          final A = p['A']!.value;
-          final m = p['m']!.value;
-          final k = p['k']!.value;
-          
-          print("📊 Parameters - A: $A, m: $m, k: $k");
-          
-          visualiserWidget = SHMWidget(A: A, m: m, k: k);
-          print("✅ SHM widget created!");
-          
-        } else {
-          print("⚠️ Template ID '$templateId' not recognized");
-        }
-        
-        setState(() {
           visualiserTemplate = template;
           loadingVisualiser = false;
         });
@@ -409,22 +383,10 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   }
 
   String _formatKey(String raw) {
+    if (raw.isEmpty) return "";
     return raw
         .replaceAll("_", " ")
         .trim()
         .replaceFirst(raw[0], raw[0].toUpperCase());
-  }
-}
-
-// Custom FlameGame class for the scan result visualiser
-class _VisualiserGame extends FlameGame {
-  final Component component;
-  
-  _VisualiserGame(this.component);
-  
-  @override
-  Future<void> onLoad() async {
-    await add(component);
-    return super.onLoad();
   }
 }

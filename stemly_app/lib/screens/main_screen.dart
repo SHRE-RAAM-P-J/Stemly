@@ -1,10 +1,3 @@
-import 'dart:io';
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
-
 import '../services/firebase_auth_service.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../storage/history_store.dart';
@@ -134,22 +127,58 @@ class _MainScreenState extends State<MainScreen> {
       children: [
         _buildMainUI(theme, cs),
         if (loading)
-          Container(
-            color: Colors.black45,
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(strokeWidth: 3),
-                  SizedBox(height: 20),
-                  Text(
-                    "Analyzing Image...",
-                    style: TextStyle(fontSize: 18),
-                  )
-                ],
+          if (loading)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: 40,
+                            width: 40,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                              backgroundColor: cs.primary.withOpacity(0.1),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Material(
+                            color: Colors.transparent,
+                            child: Text(
+                              "Analyzing Image...",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: cs.primary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
       ],
     );
   }
