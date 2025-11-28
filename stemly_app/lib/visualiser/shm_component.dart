@@ -106,12 +106,21 @@ class SHMPainter extends CustomPainter {
       Paint()..color = Colors.grey.shade700,
     );
 
-    // Draw Equilibrium Line
-    canvas.drawLine(
-      Offset(centerX - 60, centerY),
-      Offset(centerX + 60, centerY),
-      Paint()..color = Colors.green.withOpacity(0.5)..style = PaintingStyle.stroke..strokeWidth = 1..pathEffect = PathEffect.dashPathEffect([5, 5], 0),
-    );
+    // Draw Equilibrium Line (Manual dashed line)
+    final dashPaint = Paint()
+      ..color = Colors.green.withOpacity(0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+      
+    double dashX = centerX - 60;
+    while (dashX < centerX + 60) {
+      canvas.drawLine(
+        Offset(dashX, centerY),
+        Offset(min(dashX + 5, centerX + 60), centerY),
+        dashPaint,
+      );
+      dashX += 10;
+    }
     _drawText(canvas, 'Equilibrium', centerX - 80, centerY, size: 10, color: Colors.green);
 
     // Draw Spring
