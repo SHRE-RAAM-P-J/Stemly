@@ -5,6 +5,8 @@ import 'package:flame/game.dart';
 import 'package:http/http.dart' as http;
 
 import '../visualiser/projectile_motion.dart';
+import '../visualiser/free_fall_component.dart';
+import '../visualiser/shm_component.dart';
 import '../visualiser/visualiser_models.dart';
 
 class ScanResultScreen extends StatefulWidget {
@@ -69,9 +71,11 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         final template = VisualTemplate.fromJson(templateJson);
         print("✅ Parsed template - animationType: ${template.animationType}, templateId: ${template.templateId}");
         
-        // Create Flame game based on template ID (not animation type)
-        if (template.templateId.toLowerCase().contains('projectile')) {
-          print("🎯 Creating projectile component...");
+        // Create Flame game based on template ID
+        final templateId = template.templateId.toLowerCase();
+        
+        if (templateId.contains('projectile')) {
+          print("🎯 Creating projectile motion component...");
           final p = template.parameters;
           final U = p['U']!.value;
           final theta = p['theta']!.value;
@@ -88,9 +92,46 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           
           projectileComponent = comp;
           flameGame = _VisualiserGame(comp);
-          print("✅ Flame game created successfully!");
+          print("✅ Projectile game created successfully!");
+          
+        } else if (templateId.contains('free') || templateId.contains('fall')) {
+          print("🎯 Creating free fall component...");
+          final p = template.parameters;
+          final h = p['h']!.value;
+          final g = p['g']!.value;
+          
+          print("📊 Parameters - h: $h, g: $g");
+          
+          final comp = FreeFallComponent(
+            h: h,
+            g: g,
+            position: Vector2.zero(),
+          );
+          
+          flameGame = _VisualiserGame(comp);
+          print("✅ Free fall game created successfully!");
+          
+        } else if (templateId.contains('shm') || templateId.contains('harmonic')) {
+          print("🎯 Creating SHM component...");
+          final p = template.parameters;
+          final A = p['A']!.value;
+          final m = p['m']!.value;
+          final k = p['k']!.value;
+          
+          print("📊 Parameters - A: $A, m: $m, k: $k");
+          
+          final comp = SHMComponent(
+            A: A,
+            m: m,
+            k: k,
+            position: Vector2.zero(),
+          );
+          
+          flameGame = _VisualiserGame(comp);
+          print("✅ SHM game created successfully!");
+          
         } else {
-          print("⚠️ Template ID '${template.templateId}' doesn't contain 'projectile'");
+          print("⚠️ Template ID '$templateId' not recognized");
         }
         
         setState(() {
