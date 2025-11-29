@@ -9,11 +9,20 @@ SCANS_DIR = "static/scans/"
 async def save_scan(file):
     os.makedirs(SCANS_DIR, exist_ok=True)
 
-    content_type = (file.content_type or "").lower()
-    if content_type not in ALLOWED_CONTENT_TYPES:
-        raise ValueError("Unsupported file type. Upload a PNG or JPEG image.")
+    # Read first 1KB to check magic bytes
+    header = await file.read(1024)
+    await file.seek(0)  # Reset cursor
 
-    filename = f"{uuid.uuid4()}.png"
+    is_png = header.startswith(b"\x89PNG\r\n\x1a\n")
+    is_jpeg = header.startswith(b"\xff\xd8\xff")
+
+    if not (is_png or is_jpeg):
+        raise ValueError("Invalid file format. Only PNG and JPEG are allowed.")
+    
+    # We still use the extension for the filename, but based on detection
+    ext = ".png" if is_png else ".jpg"
+
+    filename = f"{uuid.uuid4()}{ext}"
     file_path = os.path.join(SCANS_DIR, filename)
 
     contents = bytearray()
