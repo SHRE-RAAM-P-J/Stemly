@@ -136,6 +136,7 @@ class _MainScreenState extends State<MainScreen> {
     String token,
   ) async {
     try {
+      print("📡 Fetching notes for topic: $topic, variables: $variables");
       final url = Uri.parse("$serverIp/notes/generate");
 
       final res = await http.post(
@@ -151,12 +152,17 @@ class _MainScreenState extends State<MainScreen> {
         }),
       );
 
+      print("📡 Notes response status: ${res.statusCode}");
+      print("📡 Notes response body: ${res.body}");
+
       if (res.statusCode == 200) {
         return jsonDecode(res.body);
       }
 
+      print("❌ Notes request failed with status ${res.statusCode}");
       return {"error": "Notes request failed: ${res.statusCode}"};
     } catch (e) {
+      print("❌ Notes fetch error: $e");
       return {"error": "Connection error: $e"};
     }
   }
