@@ -23,33 +23,38 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final ImagePicker _picker = ImagePicker();
-  bool loading = false;
-
   final String serverIp = "http://10.0.2.2:8000";
 
+  // ---------------------------------------------------------
+  // CAMERA PICK
+  // ---------------------------------------------------------
   Future<void> _openCamera() async {
     try {
       final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
       if (photo == null) return;
 
-      setState(() => loading = true);
+      _showLoading();
       await _uploadImage(File(photo.path));
     } catch (e) {
-      setState(() => loading = false);
+      _hideLoading();
+      debugPrint("Camera error: $e");
     }
   }
 
+  // ---------------------------------------------------------
+  // UPLOAD IMAGE
+  // ---------------------------------------------------------
   Future<void> _uploadImage(File imageFile) async {
     try {
       final authService =
           Provider.of<FirebaseAuthService>(context, listen: false);
-      final token = await authService.getIdToken();
 
+      final token = await authService.getIdToken();
       if (token == null) {
+        _hideLoading();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Please log in to scan.")),
         );
-        setState(() => loading = false);
         return;
       }
 
@@ -73,19 +78,21 @@ class _MainScreenState extends State<MainScreen> {
       final responseBody = await streamedResponse.stream.bytesToString();
 
       if (streamedResponse.statusCode != 200) {
+        _hideLoading();
         throw Exception("Upload failed: ${streamedResponse.statusCode}");
       }
 
-      final jsonResponse = json.decode(responseBody);
-
-      String topic = jsonResponse["topic"] ?? "Unknown";
-      List<String> variables =
+      final jsonResponse = jsonDecode(responseBody);
+      final String topic = jsonResponse["topic"] ?? "Unknown";
+      final List<String> variables =
           List<String>.from(jsonResponse["variables"] ?? []);
-      String? serverImagePath = jsonResponse["image_path"];
+      final String? serverImagePath = jsonResponse["image_path"];
 
+      // Fetch AI notes
       final notes =
           await _fetchNotes(topic, variables, serverImagePath, token);
 
+      // Save scan history locally
       HistoryStore.add(
         ScanHistory(
           topic: topic,
@@ -96,8 +103,10 @@ class _MainScreenState extends State<MainScreen> {
         ),
       );
 
-      setState(() => loading = false);
+      _hideLoading();
 
+      // Navigate
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -110,20 +119,20 @@ class _MainScreenState extends State<MainScreen> {
         ),
       );
     } catch (e) {
-      setState(() => loading = false);
+      _hideLoading();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error uploading image: $e")),
       );
     }
   }
 
-  // -------------------------------------------------------------------
-  // NOTES FETCH FUNCTION ✔
-  // -------------------------------------------------------------------
+  // ---------------------------------------------------------
+  // FETCH NOTES
+  // ---------------------------------------------------------
   Future<Map<String, dynamic>> _fetchNotes(
     String topic,
     List<String> variables,
-    String? serverImagePath,
+    String? imagePath,
     String token,
   ) async {
     try {
@@ -139,7 +148,7 @@ class _MainScreenState extends State<MainScreen> {
         body: jsonEncode({
           "topic": topic,
           "variables": variables,
-          "image_path": serverImagePath,
+          "image_path": imagePath,
         }),
       );
 
@@ -147,10 +156,7 @@ class _MainScreenState extends State<MainScreen> {
       print("📡 Notes response body: ${res.body}");
 
       if (res.statusCode == 200) {
-        final parsed = jsonDecode(res.body);
-        print("📡 Parsed response: $parsed");
-        print("📡 Notes field: ${parsed["notes"]}");
-        return parsed["notes"] ?? {};
+        return jsonDecode(res.body);
       }
 
       print("❌ Notes request failed with status ${res.statusCode}");
@@ -161,6 +167,37 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  // ---------------------------------------------------------
+  // LOADING DIALOG
+  // ---------------------------------------------------------
+  void _showLoading() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Center(
+        child: Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          padding: const EdgeInsets.all(25),
+          child: const CircularProgressIndicator(strokeWidth: 4),
+        ),
+      ),
+    );
+  }
+
+  void _hideLoading() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+  }
+
+  // ---------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -203,9 +240,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
 
               const SizedBox(height: 40),
-
               Hero(tag: "scanBtn", child: _scanBox(theme, cs)),
-
               const SizedBox(height: 40),
             ],
           ),
