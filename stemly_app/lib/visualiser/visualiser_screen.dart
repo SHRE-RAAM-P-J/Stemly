@@ -1,183 +1,27 @@
-// // lib/visualiser/visualiser_screen.dart
-
-// import 'package:flutter/material.dart';
-// import 'package:provider/provider.dart';
-// import 'package:flame/game.dart';
-// import 'package:flame/components.dart';
-
-// import 'projectile_motion.dart';
-// import 'visualiser_controller.dart';
-// import 'visualiser_models.dart';
-// import 'parameter_slider.dart';
-
-// class VisualiserScreen extends StatefulWidget {
-//   final String topic;
-//   final String? userId;
-
-//   const VisualiserScreen({
-//     super.key,
-//     required this.topic,
-//     this.userId,
-//   });
-
-//   @override
-//   State<VisualiserScreen> createState() => _VisualiserScreenState();
-// }
-
-// class _VisualiserScreenState extends State<VisualiserScreen> {
-//   late VisualiserController controller;
-
-//   ProjectileComponent? projectile;
-//   FlameGame? game;
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     controller = Provider.of<VisualiserController>(context, listen: false);
-//     _load();
-//   }
-
-//   Future<void> _load() async {
-//     await controller.loadTemplate(widget.topic, userId: widget.userId);
-
-//     final template = controller.template;
-//     if (template == null) return;
-
-//     if (template.animationType.contains('projectile')) {
-//       final p = template.parameters;
-
-//       final U = p['U']!.value;
-//       final theta = p['theta']!.value;
-//       final g = p['g']!.value;
-
-//       final comp = ProjectileComponent(
-//         U: U,
-//         theta: theta,
-//         g: g,
-//         position: Vector2(50, 350),
-//       );
-
-//       projectile = comp;
-//       game = _VisualiserGame(comp);
-
-//       setState(() {});
-//     }
-//   }
-
-//   Widget _buildSliders(VisualTemplate template) {
-//     return Column(
-//       children: template.parameters.entries.map((entry) {
-//         final name = entry.key;
-//         final param = entry.value;
-
-//         return ParameterSlider(
-//           label: param.label,
-//           value: param.value,
-//           min: param.min,
-//           max: param.max,
-//           unit: param.unit,
-//           onChanged: (v) {
-//             controller.updateLocalParameter(name, v);
-
-//             if (projectile != null) {
-//               projectile!.updateParams(
-//                 U: name == 'U' ? v : null,
-//                 theta: name == 'theta' ? v : null,
-//                 g: name == 'g' ? v : null,
-//               );
-//             }
-//           },
-//         );
-//       }).toList(),
-//     );
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Consumer<VisualiserController>(
-//       builder: (context, ctl, _) {
-//         if (ctl.loading) {
-//           return const Scaffold(
-//             body: Center(child: CircularProgressIndicator()),
-//           );
-//         }
-
-//         if (ctl.error != null) {
-//           return Scaffold(
-//             body: Center(child: Text("Error: ${ctl.error}")),
-//           );
-//         }
-
-//         final template = ctl.template;
-
-//         if (template == null) {
-//           return Scaffold(
-//             body: Center(
-//               child: Text('No template found for "${widget.topic}"'),
-//             ),
-//           );
-//         }
-
-//         return Scaffold(
-//           appBar: AppBar(title: Text(template.title)),
-//           body: Row(
-//             children: [
-//               Expanded(
-//                 flex: 3,
-//                 child: Container(
-//                   color: Colors.black12,
-//                   height: 500,
-//                   child: game != null
-//                       ? GameWidget(game: game!)
-//                       : const Center(child: Text("Loading animation...")),
-//                 ),
-//               ),
-//               Expanded(
-//                 flex: 2,
-//                 child: SingleChildScrollView(
-//                   padding: const EdgeInsets.all(12),
-//                   child: Column(
-//                     children: [
-//                       Text(template.description),
-//                       const SizedBox(height: 12),
-//                       _buildSliders(template),
-//                     ],
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         );
-//       },
-//     );
-//   }
-// }
-
-// // ------------ GENERIC GAME WRAPPER (SUPPORTS ALL ANIMATIONS) ------------
-// class _VisualiserGame extends FlameGame {
-//   final Component component;
-
-//   _VisualiserGame(this.component);
-
-//   @override
-//   Future<void> onLoad() async {
-//     await add(component);
-//     super.onLoad();
-//   }
-// }
 // lib/visualiser/visualiser_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flame/game.dart';
-import 'projectile_motion.dart';
+
 import 'visualiser_controller.dart';
 import 'visualiser_models.dart';
 import 'parameter_slider.dart';
 
+// Import CustomPainter widgets
+import 'projectile_motion.dart';
+import 'free_fall_component.dart';
+import 'shm_component.dart';
+import 'kinematics_component.dart';
+import 'optics_component.dart';
+
 class VisualiserScreen extends StatefulWidget {
   final String topic;
   final String? userId;
-  const VisualiserScreen({super.key, required this.topic, this.userId});
+
+  const VisualiserScreen({
+    super.key,
+    required this.topic,
+    this.userId,
+  });
 
   @override
   State<VisualiserScreen> createState() => _VisualiserScreenState();
@@ -185,8 +29,7 @@ class VisualiserScreen extends StatefulWidget {
 
 class _VisualiserScreenState extends State<VisualiserScreen> {
   late VisualiserController controller;
-  ProjectileComponent? projectile;
-  Game? game;
+  Widget? visualiserWidget;
 
   @override
   void initState() {
@@ -197,147 +40,178 @@ class _VisualiserScreenState extends State<VisualiserScreen> {
 
   Future<void> _load() async {
     await controller.loadTemplate(widget.topic, userId: widget.userId);
+    _updateWidgetFromTemplate();
+  }
+
+  void _updateWidgetFromTemplate() {
     final template = controller.template;
     if (template == null) return;
 
-    // create game + component based on template
-    if (template.animationType.contains('projectile')) {
-      final p = template.parameters;
-      final U = p['U']!.value;
-      final theta = p['theta']!.value;
-      final g = p['g']!.value;
+    final p = template.parameters;
+    double getVal(String key) => p[key]?.value ?? 0.0;
+    
+    Widget? newWidget;
+    final id = template.templateId.toLowerCase();
 
-      final comp = ProjectileComponent(U: U, theta: theta, g: g, position: Vector2(50, 350));
-      projectile = comp;
-      
-      // Create a custom FlameGame that loads the component
-      game = _VisualiserGame(comp);
-      setState(() {});
+    if (id.contains('projectile')) {
+      newWidget = ProjectileMotionWidget(
+        U: getVal('U'),
+        theta: getVal('theta'),
+        g: getVal('g'),
+      );
+    } else if (id.contains('free') || id.contains('fall')) {
+      newWidget = FreeFallWidget(
+        h: getVal('h'),
+        g: getVal('g'),
+      );
+    } else if (id.contains('shm')) {
+      newWidget = SHMWidget(
+        A: getVal('A'),
+        m: getVal('m'),
+        k: getVal('k'),
+      );
+    } else if (id.contains('kinematics')) {
+      newWidget = KinematicsWidget(
+        u: getVal('u'),
+        a: getVal('a'),
+        tMax: getVal('t_max'),
+      );
+    } else if (id.contains('optics')) {
+      newWidget = OpticsWidget(
+        f: getVal('f'),
+        u: getVal('u'),
+        h_o: getVal('h_o'),
+      );
+    }
+
+    if (mounted) {
+      setState(() {
+        visualiserWidget = newWidget;
+      });
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   Widget _buildSliders(VisualTemplate template) {
-    final widgets = <Widget>[];
-    template.parameters.forEach((name, param) {
-      widgets.add(ParameterSlider(
-        label: param.label,
-        value: param.value,
-        min: param.min,
-        max: param.max,
-        unit: param.unit,
-        onChanged: (v) {
-          controller.updateLocalParameter(name, v);
-          // update flame component param if exists
-          if (projectile != null) {
-            if (name == 'U') projectile!.updateParams(U: v);
-            if (name == 'theta') projectile!.updateParams(theta: v);
-            if (name == 'g') projectile!.updateParams(g: v);
-          }
-        },
-      ));
-    });
-    return Column(children: widgets);
+    return Column(
+      children: template.parameters.entries.map((entry) {
+        final name = entry.key;
+        final param = entry.value;
+
+        return ParameterSlider(
+          label: param.label,
+          value: param.value,
+          min: param.min,
+          max: param.max,
+          unit: param.unit,
+          onChanged: (v) {
+            controller.updateLocalParameter(name, v);
+            _updateWidgetFromTemplate(); // Rebuild widget with new params
+          },
+        );
+      }).toList(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<VisualiserController>(builder: (context, ctl, _) {
-      if (ctl.loading) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
-      }
+    return Consumer<VisualiserController>(
+      builder: (context, ctl, _) {
+        if (ctl.loading) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-      if (ctl.error != null) {
-        return Scaffold(body: Center(child: Text('Error: ${ctl.error}')));
-      }
+        if (ctl.error != null) {
+          return Scaffold(
+            body: Center(child: Text("Error: ${ctl.error}")),
+          );
+        }
 
-      final template = ctl.template;
-      if (template == null) {
-        return Scaffold(body: Center(child: Text('No template for ${widget.topic}')));
-      }
+        final template = ctl.template;
 
-      return Scaffold(
-        appBar: AppBar(title: Text(template.title)),
-        body: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Container(
-                color: Colors.black12,
-                child: (game != null)
-                    ? GameWidget(game: game)
-                    : Center(child: Text('Loading animation...')),
-                height: 500,
-              ),
+        if (template == null) {
+          return Scaffold(
+            body: Center(
+              child: Text('No template found for "${widget.topic}"'),
             ),
-            Expanded(
-              flex: 2,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    Text(template.description),
-                    const SizedBox(height: 12),
-                    _buildSliders(template),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: () async {
-                        // Example: ask AI to change params
-                        final promptController = TextEditingController();
-                        final res = await showDialog<String>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Ask visualiser (natural language)'),
-                            content: TextField(controller: promptController),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => Navigator.pop(ctx, null),
-                                  child: const Text('Cancel')),
-                              TextButton(
-                                  onPressed: () => Navigator.pop(ctx, promptController.text),
-                                  child: const Text('Apply')),
-                            ],
-                          ),
-                        );
-                        if (res != null && res.trim().isNotEmpty) {
-                          await controller.applyAiUpdate(res, userId: widget.userId);
-                          // apply merged params to projectile
-                          final params = controller.template!.parameters;
-                          if (projectile != null) {
-                            projectile!.updateParams(
-                              U: params['U']!.value,
-                              theta: params['theta']!.value,
-                              g: params['g']!.value,
-                            );
-                          }
-                        }
-                      },
-                      child: const Text('Ask AI to update'),
-                    )
-                  ],
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(title: Text(template.title)),
+          body: Row(
+            children: [
+              // Animation Area
+              Expanded(
+                flex: 3,
+                child: Container(
+                  color: Colors.black12,
+                  height: double.infinity,
+                  child: visualiserWidget ?? const Center(child: Text("Select a topic")),
                 ),
               ),
-            )
-          ],
-        ),
-      );
-    });
+              
+              // Controls Area
+              Expanded(
+                flex: 2,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      Text(
+                        template.description,
+                        style: const TextStyle(fontSize: 16),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildSliders(template),
+                      const SizedBox(height: 20),
+                      
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.auto_awesome),
+                        label: const Text("Ask AI to Adjust"),
+                        onPressed: () => _showAiDialog(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
-}
 
-// Custom FlameGame class for the visualiser
-class _VisualiserGame extends FlameGame {
-  final ProjectileComponent projectile;
-  
-  _VisualiserGame(this.projectile);
-  
-  @override
-  Future<void> onLoad() async {
-    await add(projectile);
-    return super.onLoad();
+  Future<void> _showAiDialog(BuildContext context) async {
+    final promptController = TextEditingController();
+    final res = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ask AI (Natural Language)'),
+        content: TextField(
+          controller: promptController,
+          decoration: const InputDecoration(
+            hintText: "e.g., 'Make it go higher' or 'Increase gravity'",
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, promptController.text),
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+
+    if (res != null && res.trim().isNotEmpty) {
+      await controller.applyAiUpdate(res, userId: widget.userId);
+      _updateWidgetFromTemplate();
+    }
   }
 }
